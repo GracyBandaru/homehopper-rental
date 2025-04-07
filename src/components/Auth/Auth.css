@@ -85,3 +85,51 @@
   color: #4a6fa5;
   text-decoration: none;
 }
+
+.dashboard-link {
+  color: #3498db;
+  font-weight: 500;
+  text-decoration: none;
+  display: inline-block;
+  padding: 5px 10px;
+  border: 1px solid #3498db;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.dashboard-link:hover {
+  background: #3498db;
+  color: white;
+}
+/* Add these styles to your existing Auth.css */
+.auth-footer {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.auth-footer p {
+  margin: 8px 0;
+}
+
+.demo-link {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+.demo-link a {
+  color: #3498db;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.demo-link a:hover {
+  text-decoration: underline;
+}
+
+.error {
+  color: #e74c3c;
+  font-size: 0.8rem;
+  margin-top: 5px;
+  display: block;
+}
