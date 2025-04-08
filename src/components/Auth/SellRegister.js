@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaUser, FaEnvelope, FaLock, FaPhone, FaBuilding } from 'react-icons/fa';
+import { FaUser, FaLock, FaEnvelope, FaPhone, FaHandshake } from 'react-icons/fa';
+import axios from 'axios';
 import './Auth.css';
 
 const SellRegister = () => {
@@ -8,37 +9,32 @@ const SellRegister = () => {
     name: '',
     email: '',
     password: '',
-    confirmPassword: '',
-    contact: ''
+    contactDetails: ''
   });
-  const [errors, setErrors] = useState({});
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
   };
 
-  const validateForm = () => {
-    const newErrors = {};
-    if (!formData.name) newErrors.name = 'Name is required';
-    if (!formData.email) newErrors.email = 'Email is required';
-    if (!formData.password) newErrors.password = 'Password is required';
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-    if (!formData.contact) newErrors.contact = 'Contact is required';
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (validateForm()) {
-      // Mock submission
-      console.log('Registration data:', formData);
-      alert('Registration successful! Redirecting to login...');
-      navigate('/sell-login');
+    setError('');
+
+    try {
+      const response = await axios.post('http://localhost:5162/api/Owner/register', formData);
+
+      if (response.data) {
+        setSuccess(true);
+        setTimeout(() => navigate('/sell-login'), 2000);
+      }
+    } catch (err) {
+      setError(err.response?.data || 'Registration failed. Please try again.');
     }
   };
 
@@ -46,78 +42,63 @@ const SellRegister = () => {
     <div className="auth-page" style={{ backgroundImage: "url('/assets/auth-bg.jpg')" }}>
       <div className="auth-container">
         <div className="auth-header">
-          <FaBuilding className="auth-icon" />
+          <FaHandshake className="auth-icon" />
           <h2>Register as Landlord</h2>
-          <p>Start managing your properties</p>
+          <p>List and manage your properties</p>
         </div>
+        
+        {error && <div className="auth-error">{error}</div>}
+        {success && <div className="auth-success">Registration successful! Redirecting to login...</div>}
+        
         <form onSubmit={handleSubmit}>
           <div className="input-group">
             <FaUser />
-            <input
-              type="text"
+            <input 
+              type="text" 
               name="name"
-              placeholder="Full Name"
+              placeholder="Full Name" 
+              required 
               value={formData.name}
               onChange={handleChange}
             />
-            {errors.name && <span className="error">{errors.name}</span>}
           </div>
-
           <div className="input-group">
             <FaEnvelope />
-            <input
-              type="email"
+            <input 
+              type="email" 
               name="email"
-              placeholder="Email"
+              placeholder="Email" 
+              required 
               value={formData.email}
               onChange={handleChange}
             />
-            {errors.email && <span className="error">{errors.email}</span>}
           </div>
-
           <div className="input-group">
             <FaLock />
-            <input
-              type="password"
+            <input 
+              type="password" 
               name="password"
-              placeholder="Password"
+              placeholder="Password" 
+              required 
               value={formData.password}
               onChange={handleChange}
             />
-            {errors.password && <span className="error">{errors.password}</span>}
           </div>
-
-          <div className="input-group">
-            <FaLock />
-            <input
-              type="password"
-              name="confirmPassword"
-              placeholder="Confirm Password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-            />
-            {errors.confirmPassword && (
-              <span className="error">{errors.confirmPassword}</span>
-            )}
-          </div>
-
           <div className="input-group">
             <FaPhone />
-            <input
-              type="tel"
-              name="contact"
-              placeholder="Phone Number"
-              value={formData.contact}
+            <input 
+              type="tel" 
+              name="contactDetails"
+              placeholder="Phone Number" 
+              required 
+              value={formData.contactDetails}
               onChange={handleChange}
             />
-            {errors.contact && <span className="error">{errors.contact}</span>}
           </div>
-
           <button type="submit" className="auth-btn">Register</button>
         </form>
-
         <div className="auth-footer">
-          <p>Already have an account? <Link to="/sell-login">Login here</Link></p>
+          <p>Already registered? <Link to="/sell-login">Login here</Link></p>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaUser, FaEnvelope, FaLock, FaPhone, FaHome } from 'react-icons/fa';
+import axios from 'axios';
 import './Auth.css';
 
 function RentRegister() {
@@ -9,10 +10,11 @@ function RentRegister() {
     email: '',
     password: '',
     confirmPassword: '',
-    phone: '',
+    contactDetails: '',
     currentAddress: ''
   });
   const [errors, setErrors] = useState({});
+  const [apiError, setApiError] = useState('');
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -28,18 +30,34 @@ function RentRegister() {
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
-    if (!formData.phone) newErrors.phone = 'Phone is required';
+    if (!formData.contactDetails) newErrors.contactDetails = 'Phone is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (validateForm()) {
-      // Mock registration - replace with API call
-      console.log('Registration data:', formData);
-      alert('Registration successful! Redirecting to dashboard...');
-      navigate('/tenant');
+    setApiError('');
+
+    if (!validateForm()) return;
+
+    try {
+      const registrationData = {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password, // Plain text password
+        contactDetails: formData.contactDetails,
+        currentAddress: formData.currentAddress
+      };
+
+      const response = await axios.post('http://localhost:5162/api/Tenant/register', registrationData);
+
+      if (response.data) {
+        alert('Registration successful! You can now login.');
+        navigate('/rent-login');
+      }
+    } catch (err) {
+      setApiError(err.response?.data || 'Registration failed. Please try again.');
     }
   };
 
@@ -51,6 +69,9 @@ function RentRegister() {
           <h2>Tenant Registration</h2>
           <p>Find your perfect home</p>
         </div>
+
+        {apiError && <div className="auth-error">{apiError}</div>}
+
         <form onSubmit={handleSubmit}>
           <div className="input-group">
             <FaUser />
@@ -106,12 +127,12 @@ function RentRegister() {
             <FaPhone />
             <input
               type="tel"
-              name="phone"
+              name="contactDetails"
               placeholder="Phone Number"
-              value={formData.phone}
+              value={formData.contactDetails}
               onChange={handleChange}
             />
-            {errors.phone && <span className="error">{errors.phone}</span>}
+            {errors.contactDetails && <span className="error">{errors.contactDetails}</span>}
           </div>
 
           <div className="input-group">
