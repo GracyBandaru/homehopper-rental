@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaUser, FaLock, FaHandshake } from 'react-icons/fa';
 import axios from 'axios';
+import { jwtDecode } from 'jwt-decode';// Add this import
 import './Auth.css';
 
 const SellLogin = () => {
@@ -21,14 +22,19 @@ const SellLogin = () => {
       });
 
       if (response.data.token) {
-        // Store the token in localStorage or context
+        // Store the token in localStorage
         localStorage.setItem('ownerToken', response.data.token);
+        
+        // Decode and log the token for inspection
+        const decodedToken = jwtDecode(response.data.token);
+        console.log('Decoded JWT Token:', decodedToken);
         
         // Redirect to owner dashboard
         navigate('/owner');
       }
     } catch (err) {
-      setError(err.response?.data || 'Login failed. Please try again.');
+      setError(err.response?.data?.message || 'Login failed. Please try again.');
+      console.error('Login error:', err);
     }
   };
 
@@ -68,8 +74,6 @@ const SellLogin = () => {
         </form>
         <div className="auth-footer">
           <p>Not registered? <Link to="/sell-register">List your property</Link></p>
-         
-        
         </div>
       </div>
     </div>

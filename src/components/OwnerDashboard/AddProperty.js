@@ -1,19 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { 
   FaHome, 
   FaMapMarkerAlt, 
-  FaDollarSign, 
-  FaBed, 
-  FaBath, 
-  FaGlobeAmericas,
+  FaDollarSign,
   FaSwimmingPool,
-  FaWifi
+  FaWifi,
+  FaSpinner,
+  FaExclamationTriangle
 } from 'react-icons/fa';
 import './OwnerDashboard.css';
-import FloatingHomeButton from '../FloatingHomeButton/FloatingHomeButton';
 
 function AddProperty() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     propertyName: '',
     address: '',
@@ -23,22 +23,44 @@ function AddProperty() {
     availabilityStatus: true,
     amenities: '',
     imageFile: null,
-    videoFile: null,
-    ownerID: '' // This should be set from logged-in user's ID
+    videoFile: null
   });
-
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authStatus, setAuthStatus] = useState('checking'); // 'checking', 'authenticated', 'failed'
 
-  // List of valid countries and states
-  const validCountries = ["USA", "Canada", "UK", "India", "Australia"];
-  const validStates = {
-    USA: ["California", "New York", "Texas", "Florida", "Illinois", "Pennsylvania", "Ohio", "Georgia", "North Carolina", "Michigan"],
-    Canada: ["Ontario", "Quebec", "British Columbia", "Alberta", "Manitoba", "Saskatchewan"],
-    UK: ["England", "Scotland", "Wales", "Northern Ireland"],
-    India: ["Maharashtra", "Karnataka", "Tamil Nadu", "Uttar Pradesh", "Gujarat", "Rajasthan", "West Bengal", "Andhra Pradesh", "Telangana", "Kerala"],
-    Australia: ["New South Wales", "Victoria", "Queensland", "Western Australia", "South Australia", "Tasmania"]
-  };
+  // Get ownerId from token when component mounts
+  useEffect(() => {
+    const verifySession = async () => {
+      const token = localStorage.getItem('ownerToken');
+      if (!token) {
+        setAuthStatus('failed');
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        
+        // Check token expiration
+        if (payload.exp && payload.exp < Date.now() / 1000) {
+          throw new Error('Token expired');
+        }
+
+        // Check for required claims
+        if (!payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] && !payload.ownerId) {
+          throw new Error('Token missing required claims');
+        }
+
+        setAuthStatus('authenticated');
+      } catch (err) {
+        console.error('Session verification failed:', err);
+        localStorage.removeItem('ownerToken');
+        setAuthStatus('failed');
+      }
+    };
+
+    verifySession();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, type, checked, files } = e.target;
@@ -50,58 +72,34 @@ function AddProperty() {
               value
     }));
 
-    // Clear error when field is edited
     if (errors[name]) {
-      setErrors(prev => {
-        const newErrors = {...prev};
-        delete newErrors[name];
-        return newErrors;
-      });
+      setErrors(prev => ({ ...prev, [name]: undefined }));
     }
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.propertyName) newErrors.propertyName = 'Property name is required';
-    else if (formData.propertyName.length > 255) newErrors.propertyName = 'Cannot exceed 255 characters';
-
-    if (!formData.address) newErrors.address = 'Address is required';
-    else if (formData.address.length > 500) newErrors.address = 'Cannot exceed 500 characters';
-
-    if (!formData.state) newErrors.state = 'State is required';
-    else if (formData.state.length > 100) newErrors.state = 'Cannot exceed 100 characters';
-    else if (formData.country && !validStates[formData.country]?.includes(formData.state)) {
-      newErrors.state = 'Invalid state for selected country';
-    }
-
-    if (!formData.country) newErrors.country = 'Country is required';
-    else if (formData.country.length > 100) newErrors.country = 'Cannot exceed 100 characters';
-    else if (!validCountries.includes(formData.country)) {
-      newErrors.country = 'Invalid country name';
-    }
-
-    if (!formData.rentAmount) newErrors.rentAmount = 'Rent amount is required';
-    else if (parseFloat(formData.rentAmount) <= 0) newErrors.rentAmount = 'Must be a positive number';
-
-    if (formData.amenities && formData.amenities.length > 1000) {
-      newErrors.amenities = 'Cannot exceed 1000 characters';
-    }
-
-    if (!formData.ownerID) newErrors.ownerID = 'Owner ID is required';
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) return;
+    // Basic validation
+    const newErrors = {};
+    if (!formData.propertyName.trim()) newErrors.propertyName = 'Property name is required';
+    if (!formData.address.trim()) newErrors.address = 'Address is required';
+    if (!formData.country.trim()) newErrors.country = 'Country is required';
+    if (!formData.state.trim()) newErrors.state = 'State is required';
+    if (!formData.rentAmount || parseFloat(formData.rentAmount) <= 0) {
+      newErrors.rentAmount = 'Must be a positive number';
+    }
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) return;
 
     setIsSubmitting(true);
 
     try {
+      const token = localStorage.getItem('ownerToken');
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const ownerId = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || payload.ownerId;
+
       const formDataToSend = new FormData();
       formDataToSend.append('PropertyName', formData.propertyName);
       formDataToSend.append('Address', formData.address);
@@ -110,11 +108,10 @@ function AddProperty() {
       formDataToSend.append('RentAmount', formData.rentAmount);
       formDataToSend.append('AvailabilityStatus', formData.availabilityStatus);
       formDataToSend.append('Amenities', formData.amenities);
+      formDataToSend.append('OwnerID', ownerId);
       if (formData.imageFile) formDataToSend.append('ImageFile', formData.imageFile);
       if (formData.videoFile) formDataToSend.append('VideoFile', formData.videoFile);
-      formDataToSend.append('OwnerID', formData.ownerID);
 
-      const token = localStorage.getItem('ownerToken');
       const response = await axios.post('http://localhost:5162/api/property', formDataToSend, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -123,29 +120,61 @@ function AddProperty() {
       });
 
       alert('Property added successfully!');
-      // Reset form or redirect
+      navigate('/owner/properties');
     } catch (error) {
-      console.error('Error adding property:', error);
-      alert('Failed to add property. Please try again.');
+      console.error('Submission error:', error);
+      if (error.response?.status === 401) {
+        alert('Session expired. Please login again.');
+        localStorage.removeItem('ownerToken');
+        navigate('/owner-login');
+      } else {
+        alert(error.response?.data?.message || 'Failed to add property');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  if (authStatus === 'checking') {
+    return (
+      <div className="auth-status-container">
+        <FaSpinner className="spinner-icon" spin />
+        <p>Verifying your session...</p>
+      </div>
+    );
+  }
+
+  if (authStatus === 'failed') {
+    return (
+      <div className="auth-status-container error">
+        <FaExclamationTriangle className="error-icon" />
+        <h3>Session Expired</h3>
+        <p>Please login again to continue</p>
+        <button 
+          className="auth-retry-btn"
+          onClick={() => navigate('/owner-login')}
+        >
+          Go to Login
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="form-container">
       <h2><FaHome /> Add New Property</h2>
+      
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label><FaHome /> Property Name</label>
+          <label>Property Name</label>
           <input
             type="text"
             name="propertyName"
             value={formData.propertyName}
             onChange={handleChange}
-            required
+            className={errors.propertyName ? 'error' : ''}
           />
-          {errors.propertyName && <span className="error">{errors.propertyName}</span>}
+          {errors.propertyName && <span className="error-message">{errors.propertyName}</span>}
         </div>
 
         <div className="form-group">
@@ -155,58 +184,49 @@ function AddProperty() {
             name="address"
             value={formData.address}
             onChange={handleChange}
-            required
+            className={errors.address ? 'error' : ''}
           />
-          {errors.address && <span className="error">{errors.address}</span>}
+          {errors.address && <span className="error-message">{errors.address}</span>}
         </div>
 
         <div className="form-row">
           <div className="form-group">
-            <label><FaGlobeAmericas /> Country</label>
-            <select
-              name="country"
-              value={formData.country}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Select Country</option>
-              {validCountries.map(country => (
-                <option key={country} value={country}>{country}</option>
-              ))}
-            </select>
-            {errors.country && <span className="error">{errors.country}</span>}
-          </div>
-
-          <div className="form-group">
             <label>State</label>
-            <select
+            <input
+              type="text"
               name="state"
               value={formData.state}
               onChange={handleChange}
-              required
-              disabled={!formData.country}
-            >
-              <option value="">Select State</option>
-              {formData.country && validStates[formData.country]?.map(state => (
-                <option key={state} value={state}>{state}</option>
-              ))}
-            </select>
-            {errors.state && <span className="error">{errors.state}</span>}
+              className={errors.state ? 'error' : ''}
+            />
+            {errors.state && <span className="error-message">{errors.state}</span>}
+          </div>
+
+          <div className="form-group">
+            <label>Country</label>
+            <input
+              type="text"
+              name="country"
+              value={formData.country}
+              onChange={handleChange}
+              className={errors.country ? 'error' : ''}
+            />
+            {errors.country && <span className="error-message">{errors.country}</span>}
           </div>
         </div>
 
         <div className="form-group">
-          <label><FaDollarSign /> Monthly Rent</label>
+          <label><FaDollarSign /> Rent Amount</label>
           <input
             type="number"
             name="rentAmount"
             value={formData.rentAmount}
             onChange={handleChange}
-            min="0.01"
+            min="0"
             step="0.01"
-            required
+            className={errors.rentAmount ? 'error' : ''}
           />
-          {errors.rentAmount && <span className="error">{errors.rentAmount}</span>}
+          {errors.rentAmount && <span className="error-message">{errors.rentAmount}</span>}
         </div>
 
         <div className="form-group checkbox-group">
@@ -222,14 +242,17 @@ function AddProperty() {
         </div>
 
         <div className="form-group">
-          <label><FaSwimmingPool /> <FaWifi /> Amenities (comma separated)</label>
-          <textarea
+          <label>Amenities (comma separated)</label>
+          <div className="amenities-hint">
+            <FaSwimmingPool /> <FaWifi /> (e.g., "Pool, WiFi, Parking")
+          </div>
+          <input
+            type="text"
             name="amenities"
             value={formData.amenities}
             onChange={handleChange}
-            placeholder="Swimming pool, WiFi, Parking, etc."
+            placeholder="Pool, WiFi, Parking, etc."
           />
-          {errors.amenities && <span className="error">{errors.amenities}</span>}
         </div>
 
         <div className="form-row">
@@ -238,8 +261,8 @@ function AddProperty() {
             <input
               type="file"
               name="imageFile"
-              accept="image/*"
               onChange={handleChange}
+              accept="image/*"
             />
           </div>
 
@@ -248,27 +271,24 @@ function AddProperty() {
             <input
               type="file"
               name="videoFile"
-              accept="video/*"
               onChange={handleChange}
+              accept="video/*"
             />
           </div>
         </div>
-
-        <input
-          type="hidden"
-          name="ownerID"
-          value={formData.ownerID}
-          // In a real app, you would set this from the logged-in user's ID
-          onChange={handleChange}
-        />
-        {errors.ownerID && <span className="error">{errors.ownerID}</span>}
 
         <button 
           type="submit" 
           className="submit-btn"
           disabled={isSubmitting}
         >
-          {isSubmitting ? 'Adding Property...' : 'List Property'}
+          {isSubmitting ? (
+            <>
+              <FaSpinner className="spinner" spin /> Adding Property...
+            </>
+          ) : (
+            'List Property'
+          )}
         </button>
       </form>
     </div>

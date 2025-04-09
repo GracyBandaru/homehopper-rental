@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaUser, FaLock, FaHome } from 'react-icons/fa';
+import { FaUser, FaLock, FaHome, FaSpinner } from 'react-icons/fa';
 import axios from 'axios';
 import './Auth.css';
 
@@ -8,24 +8,28 @@ const RentLogin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     try {
       const response = await axios.post('http://localhost:5162/api/Tenant/login', {
         email,
-        password // Sending plain text password
+        password
       });
 
       if (response.data.token) {
         localStorage.setItem('tenantToken', response.data.token);
-        navigate('/tenant');
+        navigate('/tenant'); // Updated route
       }
     } catch (err) {
-      setError(err.response?.data || 'Login failed. Please try again.');
+      setError(err.response?.data?.message || err.response?.data || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -61,11 +65,13 @@ const RentLogin = () => {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <button type="submit" className="auth-btn">Login</button>
+          <button type="submit" className="auth-btn" disabled={loading}>
+            {loading ? <FaSpinner className="spinner" /> : 'Login'}
+          </button>
         </form>
         <div className="auth-footer">
           <p>Don't have an account? <Link to="/rent-register">Register here</Link></p>
-         
+          <Link to="/" className="auth-home-link">Back to Home</Link>
         </div>
       </div>
     </div>
